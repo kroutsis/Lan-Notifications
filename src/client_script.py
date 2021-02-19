@@ -5,6 +5,11 @@ import sys
 import threading
 import tkinter as tk
 from tkinter import ttk
+import netifaces as ni
+
+# custom modules
+import threads_handle
+import files_handle
 
 # from subprocess import Popen, PIPE
 from PIL import ImageTk, Image
@@ -17,6 +22,7 @@ if sys.platform == "win32":
         # import winsound
 
 sleep_flag = False
+threads_list = []
 
 
 def detect_sleep():
@@ -46,24 +52,41 @@ def detect_sleep():
                                        0, 0, hinst, None)
     except Exception as e:
         print(e)
-        pass
+
+
+run_threads = True
 
 
 def check_sleep_sig():
     detect_sleep()
-    while True:
+    while run_threads is True:
         win32gui.PumpWaitingMessages()
         if sleep_flag:
+            print("System sleeps")
             os.execv(sys.executable, ['python', __file__])
+
+
+# this function will search all interfaces and return the first that starts with "192."
+def get_lan_ip():
+    for int in ni.interfaces():
+        got_ip = ni.ifaddresses(int)[ni.AF_INET][0]['addr']
+        if got_ip.startswith("192."):
+            return got_ip
+    return None
 
 
 def check_network_con():
     online_flag = True
-    while online_flag:
-        ipaddress = socket.gethostbyname(socket.gethostname())
+    while online_flag and run_threads is True:
+        ipaddress = get_lan_ip()
+        if ipaddress is None:
+            print("No interface starts with 192.")
+            return 1
         if ipaddress != my_lan_ip:
             online_flag = False
-    os.execv(sys.executable, ['python', __file__])
+            print("Network connection lost")
+    if online_flag is False:
+        os.execv(sys.executable, ['python', __file__])
     '''
     online_flag = True
     while online_flag:
@@ -85,17 +108,24 @@ def connect():
     # AF_INET refers to the address family ipv4. The SOCK_STREAM means connection oriented TCP protocol
     c = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     global my_lan_ip
-    my_lan_ip = socket.gethostbyname(socket.gethostname())
+    my_lan_ip = get_lan_ip()
+    if my_lan_ip is None:
+        print("No interface starts with 192.")
+        return 1
     connected = False
+    count = 0
     while not connected:
         try:
             # connect it to server
             c.connect((HOST, PORT))
             connected = True
             return c
-        except ConnectionError as e:
+        except (OSError, ConnectionError) as e:
             print(e)
-            pass
+            count += 1
+            if count == 3:
+                print("3 attempts to connect passed")
+                break
 
 
 def respond(c, window=None):
@@ -105,7 +135,6 @@ def respond(c, window=None):
             window.destroy()
     except ConnectionResetError:
         os.execv(sys.executable, ['python', __file__])
-
 
 def gui(c, message):
     window = tk.Tk()
@@ -129,7 +158,7 @@ def gui(c, message):
 
     top_frame = tk.Frame(root_frame)
     try:
-        img = Image.open("logo.png")
+        img = Image.open("logo.ico")
         img = img.resize((60, 60), Image.ANTIALIAS)
         img = ImageTk.PhotoImage(img)
         canvas = tk.Canvas(top_frame, width=60, height=60)
@@ -137,7 +166,6 @@ def gui(c, message):
         canvas.create_image(1, 1, anchor=tk.NW, image=img)
     except Exception as e:
         print(e)
-        pass
 
     msg_frame = tk.Frame(top_frame)
     lbl1 = tk.Label(msg_frame, text=message[1], font=("Arial Bold", 14))
@@ -154,8 +182,9 @@ def gui(c, message):
 
     root_frame.pack()
     root_frame.update()
-    separator = ttk.Separator(window).place(x=0, y=top_frame.winfo_height(), relwidth=1)
+    # separator = ttk.Separator(window).place(x=0, y=top_frame.winfo_height(), relwidth=1)
     center_window(root_frame.winfo_width() + 20, root_frame.winfo_height())
+    window.lift()
     window.mainloop()
 
 
@@ -163,14 +192,23 @@ mode_var = 0
 
 
 def recv_msg(c, mode=1):
-    global mode_var
-    check_sleep_thread = threading.Thread(target=check_sleep_sig).start()
-    check_network_thread = threading.Thread(target=check_network_con).start()
+    global threads_list
+    global run_threads
+    check_sleep_thread = threading.Thread(target=check_sleep_sig)
+    check_sleep_thread.start()
+    threads_list.append(check_sleep_thread)
+    check_network_thread = threading.Thread(target=check_network_con)
+    check_network_thread.start()
+    threads_list.append(check_network_thread)
     while True:
         try:
             msg = c.recv(1024)
             if msg:
                 c.send("k".encode())
+        except (OSError, ConnectionError, AttributeError) as e:
+            print(e)
+            break
+        else:
             # print("RECEIVED: ", msg.decode())
             message = msg.decode().split("|")
 
@@ -179,26 +217,17 @@ def recv_msg(c, mode=1):
                 continue
             elif mode == 2:
                 t = ToastNotifier()
-                # Toast-Notifications callback module code change
-                # https://github.com/Charnelx/Windows-10-Toast-Notifications/blob/
-                # 98b894b694cb58c125a92497b1ed05bd438f9c36/win10toast/__init__.py
                 t.show_toast(message[1], message[2] + "\n[" + message[0] + "]",
-                             icon_path="logo.ico", threaded=False,
-                             callback_on_click=lambda: respond(c))
+                             icon_path="logo.ico", threaded=False)
             else:
                 print("Error! Constants.txt file corrupted.")
+                break
 
-            mode_var = mode
-        except Exception as e:
-            c.close()
-            c = connect()
-            print(e)
-            break
-
-
-def init():
-    c = connect()
-    recv_msg(c, mode_var)
+    try:
+        c.close()
+    except (OSError, ConnectionError, AttributeError) as e:
+        print(e)
+    run_threads = False
 
 
 HOST = None
@@ -210,16 +239,15 @@ def read_constants():
     global HOST
     global PORT
     global MODE
-
-    const_list = []
-    with open("constants.txt", "r") as f:
-        for const in f.readlines():
-            const_list.append(const.strip().split(" = ")[1])
-    HOST = const_list[0]
-    PORT = int(const_list[1])
-    MODE = int(const_list[2])
+    global mode_var
+    constants_list = files_handle.get_constants("constants.txt")
+    HOST = constants_list[0]
+    PORT = constants_list[1]
+    MODE = constants_list[2]
+    mode_var = MODE
 
 
 if __name__ == "__main__":
     read_constants()
-    init()
+    recv_msg(connect(), mode_var)
+    threads_handle.finish_threads(threads_list)
