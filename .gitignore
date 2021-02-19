@@ -1,0 +1,7 @@
+client/constants.txt
+client/Scripts/
+client/Lib/
+client/pyvenv.cfg
+server/client_list.txt
+venv/
+.idea/
