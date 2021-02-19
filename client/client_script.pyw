@@ -1,76 +1,84 @@
-#Konstantinos Routsis
-import socket, time, threading, sys, os
+# Konstantinos Routsis
+import os
+import socket
+import sys
+import threading
 import tkinter as tk
 from tkinter import ttk
-#from subprocess import Popen, PIPE
-try:
-    from PIL import ImageTk, Image
-except ImportError:
-    pass
+
+# from subprocess import Popen, PIPE
+from PIL import ImageTk, Image
+
 if sys.platform == "win32":
-    try:
         import win32con
         import win32api
         import win32gui
         from win10toast import ToastNotifier
-        #import winsound
-    except ImportError:
-        pass
+        # import winsound
 
-sleepflag = False
+sleep_flag = False
+
+
 def detect_sleep():
     def wndproc(hwnd, msg, wparam, lparam):
-        global sleepflag
+        global sleep_flag
         if msg:
             # win32 message num 536 WM_POWERBROADCAST
-            sleepflag = True
+            sleep_flag = True
 
     hinst = win32api.GetModuleHandle(None)
     wndclass = win32gui.WNDCLASS()
     wndclass.hInstance = hinst
     wndclass.lpszClassName = "testWindowClass"
-    messageMap = { win32con.WM_QUERYENDSESSION : wndproc,
-                   win32con.WM_ENDSESSION : wndproc,
-                   win32con.WM_POWERBROADCAST : wndproc }
-    wndclass.lpfnWndProc = messageMap
+    message_map = {win32con.WM_QUERYENDSESSION: wndproc,
+                  win32con.WM_ENDSESSION: wndproc,
+                  win32con.WM_POWERBROADCAST: wndproc}
+    wndclass.lpfnWndProc = message_map
     try:
-        myWindowClass = win32gui.RegisterClass(wndclass)
+        my_window_class = win32gui.RegisterClass(wndclass)
         hwnd = win32gui.CreateWindowEx(win32con.WS_EX_LEFT,
-                                       myWindowClass, 
-                                       "testMsgWindow", 
-                                       0, 0, 0, 
-                                       win32con.CW_USEDEFAULT, 
-                                       win32con.CW_USEDEFAULT, 
-                                       #win32con.HWND_MESSAGE, 
+                                       my_window_class,
+                                       "testMsgWindow",
+                                       0, 0, 0,
+                                       win32con.CW_USEDEFAULT,
+                                       win32con.CW_USEDEFAULT,
+                                       # win32con.HWND_MESSAGE,
                                        0, 0, hinst, None)
-    except:
+    except Exception as e:
+        print(e)
         pass
 
-def check_sleep_sig(): 
-    detect_sleep() 
-    while True:    
+
+def check_sleep_sig():
+    detect_sleep()
+    while True:
         win32gui.PumpWaitingMessages()
-        if sleepflag:
+        if sleep_flag:
             os.execv(sys.executable, ['python', __file__])
 
+
 def check_network_con():
-    onlineflag = True
-    while onlineflag:
+    online_flag = True
+    while online_flag:
         ipaddress = socket.gethostbyname(socket.gethostname())
         if ipaddress != my_lan_ip:
-            onlineflag = False
+            online_flag = False
     os.execv(sys.executable, ['python', __file__])
     '''
-    onlineflag = True
-    while onlineflag:
+    online_flag = True
+    while online_flag:
         #Ping Host address every 15 mins
         ping = Popen("ping -n 1 " + HOST, stdout=PIPE, stderr=PIPE)
         exit_code = ping.wait()
         time.sleep(15*60)
         if exit_code != 0:
-            onlineflag = False
+            online_flag = False
     os.execv(sys.executable, ['python', __file__])
     '''
+
+
+my_lan_ip = None
+
 
 def connect():
     # create a socket at client side using TCP / IP protocol 
@@ -85,48 +93,52 @@ def connect():
             c.connect((HOST, PORT))
             connected = True
             return c
-        except:
+        except ConnectionError as e:
+            print(e)
             pass
+
 
 def respond(c, window=None):
     try:
         c.send("ROGER".encode())
-        if window != None:
+        if window is not None:
             window.destroy()
     except ConnectionResetError:
         os.execv(sys.executable, ['python', __file__])
 
-def gui(c, message):
 
+def gui(c, message):
     window = tk.Tk()
+
     def center_window(width=300, height=200):
         # get screen width and height
         screen_width = window.winfo_screenwidth()
         screen_height = window.winfo_screenheight()
-    
+
         # calculate position x and y coordinates
-        x = (screen_width) - (width) - 16
-        y = (screen_height) - (height) - 73
+        x = screen_width-width-16
+        y = screen_height-height-73
         window.geometry('%dx%d+%d+%d' % (width, height, x, y))
 
     window.title(message[0])
     window.attributes('-toolwindow', True)
     window.attributes('-topmost', True)
-    #winsound.PlaySound('SystemExclamation', winsound.SND_ALIAS)
+    # winsound.PlaySound('SystemExclamation', winsound.SND_ALIAS)
     window.resizable(width=False, height=False)
     root_frame = tk.Frame(window)
-    
+
     top_frame = tk.Frame(root_frame)
     try:
         img = Image.open("logo.png")
-        img = img.resize((60,60), Image.ANTIALIAS)
+        img = img.resize((60, 60), Image.ANTIALIAS)
         img = ImageTk.PhotoImage(img)
-        canvas = tk.Canvas(top_frame, width = 60, height = 60)  
+        canvas = tk.Canvas(top_frame, width=60, height=60)
         canvas.pack(side=tk.LEFT)
         canvas.create_image(1, 1, anchor=tk.NW, image=img)
-    except:
+    except Exception as e:
+        print(e)
         pass
-    
+
     msg_frame = tk.Frame(top_frame)
     lbl1 = tk.Label(msg_frame, text=message[1], font=("Arial Bold", 14))
     lbl1.pack()
@@ -143,10 +155,15 @@ def gui(c, message):
     root_frame.pack()
     root_frame.update()
     separator = ttk.Separator(window).place(x=0, y=top_frame.winfo_height(), relwidth=1)
-    center_window(root_frame.winfo_width()+20, root_frame.winfo_height())
+    center_window(root_frame.winfo_width() + 20, root_frame.winfo_height())
     window.mainloop()
 
-def recv_msg(c, MODE=1):
+
+mode_var = 0
+
+
+def recv_msg(c, mode=1):
+    global mode_var
     check_sleep_thread = threading.Thread(target=check_sleep_sig).start()
     check_network_thread = threading.Thread(target=check_network_con).start()
     while True:
@@ -154,35 +171,46 @@ def recv_msg(c, MODE=1):
             msg = c.recv(1024)
             if msg:
                 c.send("k".encode())
-            #print("RECEIVED: ", msg.decode())
+            # print("RECEIVED: ", msg.decode())
             message = msg.decode().split("|")
 
-            if MODE == 1:
+            if mode == 1:
                 gui(c, message)
                 continue
-            elif MODE == 2:
+            elif mode == 2:
                 t = ToastNotifier()
                 # Toast-Notifications callback module code change
                 # https://github.com/Charnelx/Windows-10-Toast-Notifications/blob/
                 # 98b894b694cb58c125a92497b1ed05bd438f9c36/win10toast/__init__.py
-                t.show_toast(message[1], message[2] + "\n[" + message[0] + "]", 
+                t.show_toast(message[1], message[2] + "\n[" + message[0] + "]",
                              icon_path="logo.ico", threaded=False,
                              callback_on_click=lambda: respond(c))
             else:
                 print("Error! Constants.txt file corrupted.")
+
+            mode_var = mode
         except Exception as e:
             c.close()
             c = connect()
+            print(e)
+            break
+
 
 def init():
     c = connect()
-    recv_msg(c, MODE)
+    recv_msg(c, mode_var)
+
+
+HOST = None
+PORT = None
+MODE = None
+
 
 def read_constants():
     global HOST
     global PORT
     global MODE
-    
+
     const_list = []
     with open("constants.txt", "r") as f:
         for const in f.readlines():
@@ -190,6 +218,7 @@ def read_constants():
     HOST = const_list[0]
     PORT = int(const_list[1])
     MODE = int(const_list[2])
+
 
 if __name__ == "__main__":
     read_constants()
