@@ -1,7 +1,9 @@
-client/constants.txt
-client/Scripts/
-client/Lib/
-client/pyvenv.cfg
-server/client_list.txt
+src/constants.txt
+src/Scripts/
+src/Lib/
+src/pyvenv.cfg
+src/.idea
+src/client_list.txt
 venv/
 .idea/
+src/__pycache__/
