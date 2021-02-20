@@ -158,14 +158,6 @@ def start_gui():
     send_btn = tk.Button(window, text="    SEND    ", command=lambda: send_it())
     send_btn.grid(column=0, row=5, sticky="ne", padx=10, pady=5)
 
-    # destroy previous checkbutton widgets
-    for child in cb_frame.winfo_children():
-        child.destroy()
-    # remove checkbuttons
-    cb_del = check_buttons.keys() - connections.keys()
-    if cb_del:
-        del check_buttons[cb_del.pop()]
-
     # check_all checkbutton
     check_button_all = tk.Checkbutton(cb_frame, text="All",
                                       onvalue=True, offvalue=False,
@@ -262,7 +254,14 @@ def handle_client(conn, addr):
                 break
     # disconnect the server
     conn.close()
+    print(connections)
+    print(check_buttons)
+    print(check_buttons[addr]["widget"])
+    check_buttons[addr]["canvas"].destroy()
+    check_buttons[addr]["widget"].destroy()
+
     del connections[addr]
+    del check_buttons[addr]
     print("DISCONNECTED:", addr[0])
 
 

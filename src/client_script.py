@@ -200,10 +200,13 @@ def recv_msg(c, mode=1):
     check_network_thread = threading.Thread(target=check_network_con)
     check_network_thread.start()
     threads_list.append(check_network_thread)
+    print(f"Socket: {c}")
     while True:
         try:
+            print("Waiting for server message")
             msg = c.recv(1024)
             if msg:
+                print(f"Received message: {msg.decode()}")
                 c.send("k".encode())
         except (OSError, ConnectionError, AttributeError) as e:
             print(e)
@@ -248,6 +251,7 @@ def read_constants():
 
 
 if __name__ == "__main__":
+    print("Client started")
     read_constants()
     recv_msg(connect(), mode_var)
     threads_handle.finish_threads(threads_list)
