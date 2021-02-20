@@ -230,6 +230,17 @@ def update_check_buttons():
 def handle_client(conn, addr):
     # display client address
     print("NEW CONNECTION:", addr[0])
+
+    found_client = False
+    for client in client_list:
+        if client[0] == addr[0]:
+            found_client = True
+
+    if found_client is False:
+        print(f"client ip: {addr[0]} is not in client list")
+        conn.close()
+        return 1
+
     connections[addr] = conn
     update_check_buttons()
     while run_threads is True:
@@ -259,7 +270,6 @@ def handle_client(conn, addr):
     print(check_buttons[addr]["widget"])
     check_buttons[addr]["canvas"].destroy()
     check_buttons[addr]["widget"].destroy()
-
     del connections[addr]
     del check_buttons[addr]
     print("DISCONNECTED:", addr[0])

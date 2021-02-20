@@ -136,6 +136,7 @@ def respond(c, window=None):
     except ConnectionResetError:
         os.execv(sys.executable, ['python', __file__])
 
+
 def gui(c, message):
     window = tk.Tk()
 
@@ -214,6 +215,13 @@ def recv_msg(c, mode=1):
         else:
             # print("RECEIVED: ", msg.decode())
             message = msg.decode().split("|")
+
+            if message == ['']:
+                print("Received nothing from server")
+                run_threads = False
+                c.close()
+                print("Closed socket")
+                break
 
             if mode == 1:
                 gui(c, message)
