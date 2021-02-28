@@ -23,3 +23,4 @@ Sends direct messages to every computer-user in your network as popup notificati
 
 ![lan3](https://user-images.githubusercontent.com/63212423/107272329-3abb0980-6a56-11eb-9208-be9a4d9f944a.PNG)
 <br>
+Licensed under the [MIT License](LICENSE)
